@@ -1,0 +1,41 @@
+services:
+  mongo:
+    image: mongo
+    container_name: mongo
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo-data:/data/db
+
+  backend:
+    build: ./backend
+    container_name: backend
+    ports:
+      - "5000:5000"
+    environment:
+      - MONGO_URL=mongodb+srv://i222519:altaf@cluster0.qnkpnlz.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0
+    depends_on:
+      - mongo
+    networks:
+      default:
+        aliases:
+          - my-node-backend-service
+
+  frontend:
+    build: ./book_store
+    container_name: frontend
+    ports:
+      - "3000:80"
+    environment:
+      - REACT_APP_API_BASE_URL=http://localhost:5000
+    depends_on:
+      - backend
+    networks:
+      - default
+
+volumes:
+  mongo-data:
+
+networks:
+  default:
+    driver: bridge

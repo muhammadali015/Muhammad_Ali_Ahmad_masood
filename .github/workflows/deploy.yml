@@ -1,0 +1,53 @@
+name: Build and Deploy to Kubernetes
+
+on:
+  push:
+    branches:
+      - master
+
+jobs:
+  build-deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v2
+
+    - name: Login to Docker Hub
+      run: |
+        echo "${{ secrets.DOCKER_PASSWORD }}" | docker login -u "${{ secrets.DOCKER_USERNAME }}" --password-stdin
+
+    - name: Build and push backend image
+      run: |
+        docker build -t ${{ secrets.DOCKER_USERNAME }}/mern-app-backend:latest ./backend
+        docker push ${{ secrets.DOCKER_USERNAME }}/mern-app-backend:latest
+
+    - name: Build and push frontend image
+      run: |
+        docker build -t ${{ secrets.DOCKER_USERNAME }}/mern-app-frontend:latest ./book_store
+        docker push ${{ secrets.DOCKER_USERNAME }}/mern-app-frontend:latest
+
+    # OPTIONAL: Deploy to a real Kubernetes cluster using KUBECONFIG secret
+    - name: Set up kubeconfig
+      if: ${{ env.KUBECONFIG_CONTENTS != '' }}
+      run: |
+        mkdir -p ~/.kube  # Create the directory if it doesn't exist
+        echo "$KUBECONFIG_CONTENTS" | base64 --decode > ~/.kube/config
+      env:
+        KUBECONFIG_CONTENTS: ${{ secrets.KUBECONFIG }}
+
+    - name: Deploy to Kubernetes Cluster
+      if: ${{ env.KUBECONFIG_CONTENTS != '' }}
+      run: |
+        kubectl apply -f k8s/using-local-mongodb/database/
+        kubectl apply -f k8s/using-local-mongodb/backend/
+        kubectl apply -f k8s/using-local-mongodb/frontend/
+
+    - name: Check Deployment Status
+      if: ${{ env.KUBECONFIG_CONTENTS != '' }}
+      run: |
+        kubectl get pods -o wide
+        kubectl get services -o wide
